@@ -43,7 +43,7 @@ authRouter.get('/google/callback', async (req, res) => {
       })
     });
 
-    const tokenData = await tokenResponse.json();
+    const tokenData: any = await tokenResponse.json();
 
     if (tokenData.error) {
       return res.status(400).send(`OAuth Error: ${tokenData.error_description}`);
@@ -55,7 +55,7 @@ authRouter.get('/google/callback', async (req, res) => {
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     });
-    const userData = await userResponse.json();
+    const userData: any = await userResponse.json();
 
     if (!userData.email) {
       return res.status(400).send('Could not retrieve email from Google');
