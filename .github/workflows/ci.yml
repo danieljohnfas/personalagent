@@ -28,10 +28,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        working-directory: ${{ matrix.app }}
+      - name: Install dependencies (root)
         run: npm ci
 
       - name: TypeScript — noEmit
@@ -52,10 +51,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: interface/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        working-directory: interface
+      - name: Install dependencies (root)
         run: npm ci
 
       - name: Lint
@@ -81,10 +79,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        working-directory: ${{ matrix.app }}
+      - name: Install dependencies (root)
         run: npm ci
 
       - name: Run tests (vitest)
@@ -112,10 +109,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        working-directory: ${{ matrix.app }}
+      - name: Install dependencies (root)
         run: npm ci
 
       - name: Build
