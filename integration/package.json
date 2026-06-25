@@ -5,7 +5,9 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "migrate": "tsx src/db/migrate.ts"
+    "migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
