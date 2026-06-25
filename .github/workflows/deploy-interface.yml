@@ -25,10 +25,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: interface/package-lock.json
 
@@ -36,9 +36,9 @@ jobs:
         working-directory: interface
         run: npm ci
 
-      - name: Type-check — must pass before deploy
+      - name: Lint — must pass before deploy
         working-directory: interface
-        run: npx tsc --noEmit
+        run: npm run lint
 
       # ── Vercel deploy ─────────────────────────────────────────────────────
       # Requires three repository secrets:

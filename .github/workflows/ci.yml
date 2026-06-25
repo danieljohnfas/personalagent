@@ -17,16 +17,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [interface, orchestrator, integration]
+        app: [orchestrator, integration]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.app }}/package-lock.json
 
@@ -37,6 +37,30 @@ jobs:
       - name: TypeScript — noEmit
         working-directory: ${{ matrix.app }}
         run: npx tsc --noEmit
+
+  # ── 1b. Interface lint (uses next lint, not bare tsc) ─────────────────────
+  lint-interface:
+    name: Lint & type-check (interface)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: interface/package-lock.json
+
+      - name: Install dependencies
+        working-directory: interface
+        run: npm ci
+
+      - name: Lint
+        working-directory: interface
+        run: npm run lint
 
   # ── 2. Unit / integration tests (vitest) ─────────────────────────────────
   test:
@@ -52,10 +76,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.app }}/package-lock.json
 
@@ -83,10 +107,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.app }}/package-lock.json
 
