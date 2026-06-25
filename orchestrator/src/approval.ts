@@ -41,11 +41,10 @@ export async function requestApproval(req: ApprovalRequest): Promise<void> {
 }
 
 export function resolveApproval(planId: string, stepId: string, approved: boolean, token: string): void {
-  // Verify JWT token ensures the request came from an authenticated UI session
-  try {
-    jwt.verify(token, config.JWT_SECRET);
-  } catch (e) {
-    throw new Error('Invalid or expired approval token');
+  // Single-user auth: compare token directly against JWT_SECRET passphrase.
+  // The "JWT_SECRET" env var doubles as the approval passphrase — no library needed.
+  if (token !== config.JWT_SECRET) {
+    throw new Error('Invalid approval token — check your NEXT_PUBLIC_JWT_SECRET');
   }
 
   const key = `${planId}:${stepId}`;

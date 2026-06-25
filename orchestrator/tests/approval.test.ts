@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import jwt from 'jsonwebtoken';
 import { config } from '../src/config.js';
 import { requestApproval, resolveApproval, getPendingApprovals, pendingApprovals } from '../src/approval.js';
 
@@ -21,28 +20,28 @@ describe('Approval System', () => {
       description: 'Test action',
       payload: {},
     };
-    
+
     // We expect this to reject because it's cleared in beforeEach
     requestApproval(req).catch(() => {});
-    
+
     const pending = getPendingApprovals();
     expect(pending).toHaveLength(1);
     expect(pending[0].plan_id).toBe('p1');
   });
 
-  it('resolves approval successfully with valid token', async () => {
+  it('resolves approval successfully with correct passphrase', async () => {
     const req = {
       plan_id: 'p2',
       step_id: 's2',
       description: 'Test action',
       payload: {},
     };
-    
+
     const p = requestApproval(req);
-    
-    const token = jwt.sign({ sub: 'user' }, config.JWT_SECRET);
-    resolveApproval('p2', 's2', true, token);
-    
+
+    // The token IS the JWT_SECRET passphrase in our single-user model
+    resolveApproval('p2', 's2', true, 'test_secret');
+
     await expect(p).resolves.toBeUndefined();
     expect(getPendingApprovals()).toHaveLength(0);
   });
@@ -55,7 +54,7 @@ describe('Approval System', () => {
       payload: {},
     };
     requestApproval(req).catch(() => {});
-    
-    expect(() => resolveApproval('p3', 's3', true, 'invalid.token.string')).toThrow(/Invalid or expired/);
+
+    expect(() => resolveApproval('p3', 's3', true, 'wrong-passphrase')).toThrow(/Invalid approval token/);
   });
 });
