@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 const ORCHESTRATOR = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001/api/v1';
-const JWT_SECRET   = process.env.NEXT_PUBLIC_JWT_SECRET   || 'super_secret_dev_passphrase_123';
+const INTEGRATION  = process.env.NEXT_PUBLIC_INTEGRATION_URL  || 'http://localhost:3002';
+const JWT_SECRET   = process.env.NEXT_PUBLIC_JWT_SECRET       || 'super_secret_dev_passphrase_123';
 
 interface Step {
   id: string;
@@ -51,7 +52,7 @@ export default function DashboardPage() {
     try {
       const [o, i] = await Promise.allSettled([
         fetch(`${ORCHESTRATOR}/health`),
-        fetch('http://localhost:3002/api/health'),
+        fetch(`${INTEGRATION}/api/health`),
       ]);
       setHealth({
         orchestrator: o.status === 'fulfilled' && o.value.ok,
@@ -118,14 +119,14 @@ export default function DashboardPage() {
                 <div className="stat-value" style={{ fontSize: 20, color: health.orchestrator ? 'var(--success)' : 'var(--danger)' }}>
                   {health.orchestrator ? '● Online' : '● Offline'}
                 </div>
-                <div className="stat-sub">localhost:3001</div>
+                <div className="stat-sub">{new URL(ORCHESTRATOR).host}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Integration</div>
                 <div className="stat-value" style={{ fontSize: 20, color: health.integration ? 'var(--success)' : 'var(--danger)' }}>
                   {health.integration ? '● Online' : '● Offline'}
                 </div>
-                <div className="stat-sub">localhost:3002</div>
+                <div className="stat-sub">{new URL(INTEGRATION).host}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Pending Approvals</div>
