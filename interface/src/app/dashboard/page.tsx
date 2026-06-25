@@ -3,8 +3,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
-const ORCHESTRATOR = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001/api/v1';
-const INTEGRATION  = process.env.NEXT_PUBLIC_INTEGRATION_URL  || 'http://localhost:3002';
+let orchestratorUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001/api/v1';
+if (orchestratorUrl.endsWith('/')) orchestratorUrl = orchestratorUrl.slice(0, -1);
+if (!orchestratorUrl.endsWith('/api/v1')) orchestratorUrl += '/api/v1';
+
+let integrationUrl = process.env.NEXT_PUBLIC_INTEGRATION_URL || 'http://localhost:3002';
+if (integrationUrl.endsWith('/')) integrationUrl = integrationUrl.slice(0, -1);
+
+const ORCHESTRATOR = orchestratorUrl;
+const INTEGRATION  = integrationUrl;
 const JWT_SECRET   = process.env.NEXT_PUBLIC_JWT_SECRET       || 'super_secret_dev_passphrase_123';
 
 interface Step {

@@ -3,7 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
-const ORCHESTRATOR = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001/api/v1';
+let orchestratorUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001/api/v1';
+if (orchestratorUrl.endsWith('/')) orchestratorUrl = orchestratorUrl.slice(0, -1);
+if (!orchestratorUrl.endsWith('/api/v1')) orchestratorUrl += '/api/v1';
+const ORCHESTRATOR = orchestratorUrl;
 const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET || 'super_secret_dev_passphrase_123';
 
 type Role = 'agent' | 'user';
