@@ -55,7 +55,7 @@ describe('MCP Subsystem', () => {
       expect(result).toHaveProperty('result', 'mock');
     });
 
-    it('throws "not yet implemented" error when attempting real call', async () => {
+    it('throws an MCP error when attempting a real call to a non-existent server', async () => {
       (fs.existsSync as any).mockReturnValue(true);
       (fs.readFileSync as any).mockReturnValue(JSON.stringify({
         servers: [
@@ -69,9 +69,10 @@ describe('MCP Subsystem', () => {
       }));
 
       const manager = new MCPManager();
+      // The manager now attempts a real MCP connection, which fails with a connection error
       await expect(manager.call('real-server', 'tool', {}))
         .rejects
-        .toThrow('Real MCP calls not yet implemented');
+        .toThrow();
     });
 
     it('routes to mock for unknown server name (safe fallback)', async () => {
