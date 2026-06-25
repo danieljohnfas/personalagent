@@ -9,30 +9,25 @@ if (!orchestratorUrl.endsWith('/api/v1')) orchestratorUrl += '/api/v1';
 const ORCHESTRATOR = orchestratorUrl;
 const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET || 'super_secret_dev_passphrase_123';
 
-type Role = 'agent' | 'user';
+type Role = 'agent' | 'user' | 'function';
 type MsgStatus = 'ok' | 'error' | 'loading';
 
-interface PlanStep {
+interface ToolCall {
   id: string;
-  description: string;
-  tool: string;
+  name: string;
+  args: Record<string, unknown>;
   reversible: boolean;
-  status: string;
-}
-
-interface Plan {
-  id: string;
-  goal: string;
-  steps: PlanStep[];
+  status: 'pending' | 'approved' | 'denied' | 'executing' | 'done' | 'failed';
+  result?: unknown;
 }
 
 interface Message {
   id: string;
   role: Role;
-  text: string;
+  content: string;
+  toolCalls?: ToolCall[];
+  toolResult?: { name: string; result: unknown };
   status?: MsgStatus;
-  plan?: Plan;
-  result?: unknown;
   ts: Date;
 }
 
@@ -52,49 +47,52 @@ function ResultBlock({ data }: { data: unknown }) {
   return <pre className="result-block">{text}</pre>;
 }
 
-function PlanCard({ plan, onApprove, onDeny, approving }: {
-  plan: Plan;
-  onApprove: (planId: string, stepId: string) => void;
-  onDeny: (planId: string, stepId: string) => void;
+function ToolCard({ toolCall, onApprove, onDeny, approving }: {
+  toolCall: ToolCall;
+  onApprove: (id: string) => void;
+  onDeny: (id: string) => void;
   approving: string | null;
 }) {
   return (
-    <div className="plan-card">
-      <div className="plan-card-header">📋 Execution Plan — {plan.steps.length} step{plan.steps.length !== 1 ? 's' : ''}</div>
-      {plan.steps.map(step => (
-        <div key={step.id} className="plan-step">
-          <span className={`step-pill ${step.reversible ? 'write' : 'read'}`}>
-            {step.reversible ? '✍ WRITE' : '👁 READ'}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div className="step-desc">{step.description}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
-              {step.tool}
-            </div>
-            {step.reversible && step.status === 'pending' && (
-              <div className="approval-actions">
-                <button
-                  className="btn btn-success"
-                  onClick={() => onApprove(plan.id, step.id)}
-                  disabled={approving === step.id}
-                >
-                  {approving === step.id ? '...' : '✓ Approve'}
-                </button>
-                <button
-                  className="btn btn-danger"
-                  onClick={() => onDeny(plan.id, step.id)}
-                  disabled={approving === step.id}
-                >
-                  ✕ Deny
-                </button>
-              </div>
-            )}
-            {step.reversible && step.status === 'approved' && (
-              <span className="step-pill approved" style={{ marginTop: 6, display: 'inline-block' }}>✓ Approved</span>
-            )}
+    <div className="plan-card" style={{ marginTop: 8 }}>
+      <div className="plan-card-header">
+        {toolCall.reversible ? '✍ WRITE ACTION' : '👁 READ ACTION'}
+      </div>
+      <div className="plan-step">
+        <div style={{ flex: 1 }}>
+          <div className="step-desc" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            {toolCall.name}({JSON.stringify(toolCall.args)})
           </div>
+          
+          {toolCall.reversible && toolCall.status === 'pending' && (
+            <div className="approval-actions" style={{ marginTop: 8 }}>
+              <button
+                className="btn btn-success"
+                onClick={() => onApprove(toolCall.id)}
+                disabled={approving === toolCall.id}
+              >
+                {approving === toolCall.id ? '...' : '✓ Approve'}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => onDeny(toolCall.id)}
+                disabled={approving === toolCall.id}
+              >
+                ✕ Deny
+              </button>
+            </div>
+          )}
+          {toolCall.status === 'executing' && (
+            <span className="step-pill" style={{ marginTop: 6, display: 'inline-block' }}>Executing...</span>
+          )}
+          {toolCall.status === 'done' && toolCall.reversible && (
+            <span className="step-pill approved" style={{ marginTop: 6, display: 'inline-block' }}>✓ Approved & Executed</span>
+          )}
+          {toolCall.status === 'denied' && (
+            <span className="step-pill" style={{ marginTop: 6, display: 'inline-block', background: '#442222', color: '#ffaaaa' }}>✕ Denied</span>
+          )}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -104,7 +102,6 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState<string | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -120,30 +117,146 @@ export default function ChatPage() {
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
   }, [input]);
 
-  // Poll pending approvals count for badge
+  // Check if we need to auto-continue the loop
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const r = await fetch(`${ORCHESTRATOR}/approvals`);
-        if (r.ok) {
-          const data = await r.json() as unknown[];
-          setPendingCount(data.length);
-        }
-      } catch { /* offline */ }
-    };
-    poll();
-    const id = setInterval(poll, 5000);
-    return () => clearInterval(id);
-  }, []);
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
 
-  function addMsg(msg: Omit<Message, 'id' | 'ts'>) {
-    const full: Message = { ...msg, id: crypto.randomUUID(), ts: new Date() };
-    setMessages(prev => [...prev, full]);
-    return full.id;
+    // If the last message is from the model and has tool calls that are pending and NOT reversible
+    // we should auto-execute them.
+    if (lastMessage.role === 'agent' && lastMessage.toolCalls) {
+      const pendingReads = lastMessage.toolCalls.filter(tc => !tc.reversible && tc.status === 'pending');
+      if (pendingReads.length > 0) {
+        executeTools(lastMessage.id, pendingReads);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  async function processChatLoop(currentMessages: Message[]) {
+    try {
+      setLoading(true);
+      
+      const apiMessages = currentMessages.map(m => {
+        // Convert to backend format
+        const role = m.role === 'agent' ? 'model' : m.role;
+        return {
+          role,
+          content: m.content,
+          toolCalls: m.toolCalls,
+          toolResult: m.toolResult
+        };
+      });
+
+      const res = await fetch(`${ORCHESTRATOR}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages }),
+      });
+      
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json() as { text: string, toolCalls?: { name: string, args: Record<string, unknown> }[] };
+
+      const newMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        content: data.text,
+        ts: new Date(),
+        status: 'ok',
+      };
+
+      if (data.toolCalls) {
+        newMsg.toolCalls = data.toolCalls.map(tc => ({
+          id: crypto.randomUUID(),
+          name: tc.name,
+          args: tc.args,
+          reversible: /create|update|delete|write|push|post/i.test(tc.name),
+          status: 'pending'
+        }));
+      }
+
+      setMessages(prev => [...prev, newMsg]);
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'agent', content: `❌ ${msg}`, status: 'error', ts: new Date() }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function updateMsg(id: string, patch: Partial<Message>) {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
+  async function executeTools(messageId: string, toolsToExec: ToolCall[], overrideToken?: string) {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const updatedCalls = m.toolCalls?.map(tc => 
+        toolsToExec.some(t => t.id === tc.id) ? { ...tc, status: 'executing' as const } : tc
+      );
+      return { ...m, toolCalls: updatedCalls };
+    }));
+
+    let resultsAdded = false;
+    const newHistory = [...messages];
+
+    for (const tc of toolsToExec) {
+      try {
+        const execRes = await fetch(`${ORCHESTRATOR}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toolCall: tc, reversible: tc.reversible, token: overrideToken }),
+        });
+        
+        let resultData: unknown;
+        if (!execRes.ok) {
+          resultData = { error: await execRes.text() };
+        } else {
+          const { result } = await execRes.json() as { result: unknown };
+          resultData = result;
+        }
+
+        // Add function result to history
+        newHistory.push({
+          id: crypto.randomUUID(),
+          role: 'function',
+          content: '',
+          toolResult: { name: tc.name, result: resultData },
+          ts: new Date()
+        });
+        resultsAdded = true;
+
+        // Mark tool as done
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          const updatedCalls = m.toolCalls?.map(call => 
+            call.id === tc.id ? { ...call, status: 'done' as const, result: resultData } : call
+          );
+          return { ...m, toolCalls: updatedCalls };
+        }));
+
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        newHistory.push({
+          id: crypto.randomUUID(),
+          role: 'function',
+          content: '',
+          toolResult: { name: tc.name, result: { error: errorMsg } },
+          ts: new Date()
+        });
+        resultsAdded = true;
+        
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          const updatedCalls = m.toolCalls?.map(call => 
+            call.id === tc.id ? { ...call, status: 'failed' as const } : call
+          );
+          return { ...m, toolCalls: updatedCalls };
+        }));
+      }
+    }
+
+    if (resultsAdded) {
+      // Re-trigger the chat loop with the new tool results so the LLM can respond
+      processChatLoop(newHistory);
+    }
   }
 
   async function send(goal?: string) {
@@ -151,123 +264,51 @@ export default function ChatPage() {
     if (!text || loading) return;
     setInput('');
 
-    addMsg({ role: 'user', text });
-    setLoading(true);
-
-    const agentId = addMsg({ role: 'agent', text: '', status: 'loading' });
-
-    try {
-      // 1. Ask orchestrator to plan
-      const planRes = await fetch(`${ORCHESTRATOR}/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal: text }),
-      });
-      if (!planRes.ok) throw new Error(await planRes.text());
-      const plan: Plan = await planRes.json();
-
-      const hasReversible = plan.steps.some(s => s.reversible);
-
-      if (hasReversible) {
-        // Show plan for approval
-        updateMsg(agentId, {
-          text: `I created an execution plan that includes write actions. Please review and approve each step before I proceed.`,
-          status: 'ok',
-          plan,
-        });
-        setLoading(false);
-        return;
-      }
-
-      // 2. No reversible steps — auto-execute all
-      updateMsg(agentId, { text: 'Executing…', status: 'loading' });
-
-      const results: unknown[] = [];
-      for (const step of plan.steps) {
-        const execRes = await fetch(`${ORCHESTRATOR}/execute`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ step }),
-        });
-        if (!execRes.ok) throw new Error(await execRes.text());
-        const { result } = await execRes.json() as { result: unknown };
-        results.push(result);
-      }
-
-      const resultData = results.length === 1 ? results[0] : results;
-      const content = extractContent(resultData);
-
-      updateMsg(agentId, {
-        text: `Done! Here are the results for: "${text}"`,
-        status: 'ok',
-        result: content,
-        plan,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      updateMsg(agentId, { text: `❌ ${msg}`, status: 'error' });
-    } finally {
-      setLoading(false);
-    }
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text, ts: new Date() };
+    const currentMessages = [...messages, userMsg];
+    setMessages(currentMessages);
+    
+    processChatLoop(currentMessages);
   }
 
-  function extractContent(data: unknown): string {
-    // MCP returns { content: [{ type: 'text', text: '...' }] }
-    if (data && typeof data === 'object') {
-      const d = data as Record<string, unknown>;
-      if (Array.isArray(d.content)) {
-        const first = d.content[0] as Record<string, unknown>;
-        if (first?.text) return String(first.text);
-      }
-    }
-    return JSON.stringify(data, null, 2);
+  async function handleApprove(toolCallId: string) {
+    setApproving(toolCallId);
+    
+    // Find the message containing this toolCall
+    const msg = messages.find(m => m.toolCalls?.some(tc => tc.id === toolCallId));
+    if (!msg) return;
+    
+    const tc = msg.toolCalls!.find(tc => tc.id === toolCallId)!;
+    
+    await executeTools(msg.id, [tc], JWT_SECRET);
+    
+    setApproving(null);
   }
 
-  async function handleApprove(planId: string, stepId: string) {
-    setApproving(stepId);
-    try {
-      const r = await fetch(`${ORCHESTRATOR}/approvals/${planId}/${stepId}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approved: true, token: JWT_SECRET }),
-      });
-      if (!r.ok) throw new Error(await r.text());
+  async function handleDeny(toolCallId: string) {
+    const msg = messages.find(m => m.toolCalls?.some(tc => tc.id === toolCallId));
+    if (!msg) return;
+    const tc = msg.toolCalls!.find(tc => tc.id === toolCallId)!;
 
-      // Update local step status
-      setMessages(prev => prev.map(m => {
-        if (m.plan?.id !== planId) return m;
-        return {
-          ...m,
-          plan: {
-            ...m.plan!,
-            steps: m.plan!.steps.map(s =>
-              s.id === stepId ? { ...s, status: 'approved' } : s
-            ),
-          },
-        };
-      }));
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Error';
-      addMsg({ role: 'agent', text: `❌ Approval failed: ${msg}`, status: 'error' });
-    } finally {
-      setApproving(null);
-    }
-  }
-
-  async function handleDeny(planId: string, stepId: string) {
+    // Mark as denied
     setMessages(prev => prev.map(m => {
-      if (m.plan?.id !== planId) return m;
-      return {
-        ...m,
-        plan: {
-          ...m.plan!,
-          steps: m.plan!.steps.map(s =>
-            s.id === stepId ? { ...s, status: 'denied' } : s
-          ),
-        },
-        text: m.text + '\n\n⛔ Action denied by you.',
-      };
+      if (m.id !== msg.id) return m;
+      const updatedCalls = m.toolCalls?.map(call => 
+        call.id === tc.id ? { ...call, status: 'denied' as const } : call
+      );
+      return { ...m, toolCalls: updatedCalls };
     }));
+
+    // Push denial to history and resume loop
+    const newHistory = [...messages, {
+      id: crypto.randomUUID(),
+      role: 'function' as Role,
+      content: '',
+      toolResult: { name: tc.name, result: { error: 'User explicitly denied this action.' } },
+      ts: new Date()
+    }];
+    
+    processChatLoop(newHistory);
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -281,7 +322,6 @@ export default function ChatPage() {
 
   return (
     <div className="shell">
-      {/* Sidebar */}
       <nav className="sidebar">
         <div className="sidebar-logo">
           <div className="logo-icon">🤖</div>
@@ -290,25 +330,21 @@ export default function ChatPage() {
         <Link href="/" className="nav-item active">💬 Chat</Link>
         <Link href="/dashboard" className="nav-item">
           🛡 Approvals
-          {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
         </Link>
-
         <div className="sidebar-footer">
           <div className="status-dot">
-            <span className="dot" />
-            Agent online
+            <span className="dot" /> Agent online
           </div>
         </div>
       </nav>
 
-      {/* Chat */}
       <main className="main">
         <div className="chat-layout">
           <header className="chat-header">
             <div className="avatar agent" style={{ width: 28, height: 28, fontSize: 13 }}>🤖</div>
             <div>
               <h1>Personal Agent</h1>
-              <p>Connected · GitHub integration active</p>
+              <p>Conversational Agent Loop Active</p>
             </div>
           </header>
 
@@ -319,8 +355,7 @@ export default function ChatPage() {
                 <div>
                   <div className="welcome-title">Your agent is ready</div>
                   <div className="welcome-desc">
-                    Ask me anything about your GitHub repositories, issues, pull requests, or code.
-                    Write actions require your explicit approval before execution.
+                    Ask me anything! I will now interact conversationally and seamlessly execute tools in the background. Write actions will still prompt for your approval.
                   </div>
                   <div className="suggestions">
                     {SUGGESTIONS.map(s => (
@@ -333,7 +368,7 @@ export default function ChatPage() {
               </div>
             )}
 
-            {messages.map(m => (
+            {messages.filter(m => m.role !== 'function').map(m => (
               <div key={m.id} className={`message ${m.role}`}>
                 <div className={`avatar ${m.role}`}>
                   {m.role === 'agent' ? '🤖' : '👤'}
@@ -345,17 +380,19 @@ export default function ChatPage() {
                         <span /><span /><span />
                       </div>
                     ) : (
-                      <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
                     )}
-                    {m.plan && (
-                      <PlanCard
-                        plan={m.plan}
+                    
+                    {m.toolCalls && m.toolCalls.map(tc => (
+                      <ToolCard
+                        key={tc.id}
+                        toolCall={tc}
                         onApprove={handleApprove}
                         onDeny={handleDeny}
                         approving={approving}
                       />
-                    )}
-                    {m.result !== undefined && <ResultBlock data={m.result} />}
+                    ))}
+                    {m.toolResult && m.toolResult.result !== undefined && <ResultBlock data={m.toolResult.result} />}
                   </div>
                   <div className={`bubble-meta ${m.role === 'user' ? 'text-right' : ''}`}>
                     {fmt(m.ts)}
@@ -363,6 +400,14 @@ export default function ChatPage() {
                 </div>
               </div>
             ))}
+            {loading && messages.length > 0 && messages[messages.length-1].role !== 'agent' && (
+              <div className="message agent">
+                <div className="avatar agent">🤖</div>
+                <div className="bubble">
+                  <div className="typing"><span /><span /><span /></div>
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
 
