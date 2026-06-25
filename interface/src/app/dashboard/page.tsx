@@ -31,6 +31,7 @@ function relTime(s: string) {
 
 export default function DashboardPage() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [connections, setConnections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
   const [health, setHealth] = useState<{ orchestrator: boolean; integration: boolean }>({
@@ -38,10 +39,14 @@ export default function DashboardPage() {
     integration: false,
   });
 
-  const fetchApprovals = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const r = await fetch(`${ORCHESTRATOR}/approvals`);
-      if (r.ok) setApprovals(await r.json());
+      const [appRes, connRes] = await Promise.all([
+        fetch(`${ORCHESTRATOR}/approvals`),
+        fetch(`${ORCHESTRATOR}/auth/connections`)
+      ]);
+      if (appRes.ok) setApprovals(await appRes.json());
+      if (connRes.ok) setConnections(await connRes.json());
     } catch { /* offline */ }
     finally { setLoading(false); }
   }, []);
@@ -60,11 +65,11 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchApprovals();
+    fetchData();
     checkHealth();
-    const id = setInterval(() => { fetchApprovals(); checkHealth(); }, 5000);
+    const id = setInterval(() => { fetchData(); checkHealth(); }, 5000);
     return () => clearInterval(id);
-  }, [fetchApprovals, checkHealth]);
+  }, [fetchData, checkHealth]);
 
   async function resolve(planId: string, stepId: string, approved: boolean) {
     setActioning(stepId);
@@ -74,7 +79,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approved, token: JWT_SECRET }),
       });
-      await fetchApprovals();
+      await fetchData();
     } catch { /* ignore */ }
     finally { setActioning(null); }
   }
@@ -171,6 +176,47 @@ export default function DashboardPage() {
                     >
                       ✕ Deny
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Connected Accounts */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p className="section-title">Connected Integrations</p>
+              <button 
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    const r = await fetch(`${ORCHESTRATOR}/auth/google/url`);
+                    if (r.ok) {
+                      const { url } = await r.json();
+                      if (url) window.location.href = url;
+                    }
+                  } catch (e) {
+                    console.error('Failed to initiate OAuth', e);
+                  }
+                }}
+              >
+                + Connect Google Account
+              </button>
+            </div>
+            <div className="card">
+              {loading && <div className="empty-state">Loading…</div>}
+              {!loading && connections.length === 0 && (
+                <div className="empty-state">No accounts connected yet.</div>
+              )}
+              {connections.map((c: any) => (
+                <div key={c.id} className="card-row">
+                  <div className="card-icon icon-info">G</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="card-row-title">{c.accountEmail}</div>
+                    <div className="card-row-sub">Connected via {c.provider}</div>
+                  </div>
+                  <div className="card-row-actions">
+                    <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ Linked</span>
                   </div>
                 </div>
               ))}

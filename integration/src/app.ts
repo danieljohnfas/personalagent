@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import 'express-async-errors';
 import { MCPManager } from './mcp/manager.js';
+import { authRouter } from './auth.js';
 
 export const app = express();
 app.use(express.json());
@@ -39,6 +40,7 @@ router.get('/tools', async (req, res) => {
   }
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api', router);
 
 // Error handler

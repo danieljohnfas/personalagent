@@ -7,6 +7,7 @@ const ConfigSchema = z.object({
   INTEGRATION_URL: z.string().default('http://localhost:3002'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   AGENT_WRITE_DISABLED: z.coerce.boolean().default(false),
+  GEMINI_API_KEY: z.string().default(''),
 });
 
 export const config = ConfigSchema.parse(process.env);

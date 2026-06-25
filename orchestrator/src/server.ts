@@ -22,11 +22,21 @@ router.get('/capabilities', (req, res) => {
   res.json(registry.listCapabilities());
 });
 
-router.post('/plan', (req, res) => {
+router.post('/plan', async (req, res) => {
   const { goal } = req.body;
   if (!goal) return res.status(400).json({ error: 'goal is required' });
-  const plan = createPlan(goal, registry.listCapabilities());
-  res.json(plan);
+
+  try {
+    // 1. Fetch live tool schemas from the Integration layer
+    const toolsRes = await fetch(`${config.INTEGRATION_URL}/api/tools`);
+    const toolsData = toolsRes.ok ? await toolsRes.json() as { tools: any[] } : { tools: [] };
+    
+    // 2. Generate the execution plan using the LLM and the real tool schemas
+    const plan = await createPlan(goal, toolsData.tools);
+    res.json(plan);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get('/approvals', (req, res) => {
@@ -52,6 +62,25 @@ router.post('/execute', async (req, res) => {
     res.json({ result });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Proxy Auth routes to Integration layer
+router.get('/auth/google/url', async (req, res) => {
+  try {
+    const response = await fetch(`${config.INTEGRATION_URL}/api/auth/google/url`);
+    res.json(await response.json());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/auth/connections', async (req, res) => {
+  try {
+    const response = await fetch(`${config.INTEGRATION_URL}/api/auth/connections`);
+    res.json(await response.json());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

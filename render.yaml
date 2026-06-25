@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: orchestrator
+    env: node
+    buildCommand: "cd orchestrator && npm install && npm run build"
+    startCommand: "cd orchestrator && npm start"
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: INTEGRATION_URL
+        value: "https://partner-integration.onrender.com"
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: web
+    name: integration
+    env: node
+    buildCommand: "cd integration && npm install && npm run build"
+    startCommand: "cd integration && npm start"
+    envVars:
+      - key: PORT
+        value: 3002
+      - key: DATABASE_URL
+        sync: false
+      - key: GITHUB_PAT_TOKEN
+        sync: false

@@ -70,6 +70,19 @@ export const mcpConnections = pgTable('mcp_connections', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Connected OAuth Accounts.
+ */
+export const oauthConnections = pgTable('oauth_connections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull(),
+  accountEmail: text('account_email').notNull(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ── Inferred types ────────────────────────────────────────────────────────────
 
 export type AuditLogEntry = typeof auditLog.$inferSelect;
@@ -80,3 +93,5 @@ export type Approval = typeof approvals.$inferSelect;
 export type NewApproval = typeof approvals.$inferInsert;
 export type MCPConnection = typeof mcpConnections.$inferSelect;
 export type NewMCPConnection = typeof mcpConnections.$inferInsert;
+export type OAuthConnection = typeof oauthConnections.$inferSelect;
+export type NewOAuthConnection = typeof oauthConnections.$inferInsert;

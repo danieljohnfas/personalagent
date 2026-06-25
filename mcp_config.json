@@ -9,6 +9,13 @@
       },
       "enabled": true,
       "mock_mode": false
+    },
+    {
+      "name": "memory",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "enabled": true,
+      "mock_mode": false
     }
   ]
 }
