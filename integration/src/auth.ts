@@ -8,7 +8,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 // Redirect URI goes back to Orchestrator or Interface, but for simplicity we'll have Google hit Integration directly
 // and Integration redirects back to the Dashboard.
-const REDIRECT_URI = 'http://localhost:3002/api/auth/google/callback';
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3002/api/auth/google/callback';
 
 authRouter.get('/google/url', (req, res) => {
   if (!GOOGLE_CLIENT_ID) {
@@ -70,7 +70,8 @@ authRouter.get('/google/callback', async (req, res) => {
     });
 
     // Redirect user back to the interface dashboard
-    res.redirect('http://localhost:3000/dashboard');
+    const interfaceUrl = process.env.INTERFACE_URL || 'http://localhost:3000';
+    res.redirect(`${interfaceUrl}/dashboard`);
   } catch (err: any) {
     console.error('OAuth Callback Error:', err);
     res.status(500).send('Internal Server Error during OAuth callback');
