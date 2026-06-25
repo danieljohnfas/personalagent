@@ -8,6 +8,11 @@ const ConfigSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   AGENT_WRITE_DISABLED: z.coerce.boolean().default(false),
   GEMINI_API_KEY: z.string().default(''),
+  OPENROUTER_API_KEY: z.string().default(''),
 });
 
 export const config = ConfigSchema.parse(process.env);
+
+if (!config.GEMINI_API_KEY && !config.OPENROUTER_API_KEY) {
+  console.warn('WARNING: Neither GEMINI_API_KEY nor OPENROUTER_API_KEY is set in environment');
+}
