@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies (root)
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: TypeScript — noEmit
         working-directory: ${{ matrix.app }}
@@ -54,7 +54,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies (root)
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Lint
         working-directory: interface
@@ -82,7 +82,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies (root)
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run tests (vitest)
         working-directory: ${{ matrix.app }}
@@ -115,7 +115,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies (root)
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Build
         working-directory: ${{ matrix.app }}
