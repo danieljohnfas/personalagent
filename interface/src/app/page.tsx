@@ -8,7 +8,7 @@ export default function Home() {
       
       <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
         <h2>Chat Window</h2>
-        <p><em>Agent: Hello! I'm ready to help you manage your digital life.</em></p>
+        <p><em>Agent: Hello! I&apos;m ready to help you manage your digital life.</em></p>
         <input type="text" placeholder="Type a message..." style={{ width: '100%', padding: '0.5rem' }} />
       </div>
 
