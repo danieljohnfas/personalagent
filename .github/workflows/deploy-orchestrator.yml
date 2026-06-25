@@ -1,0 +1,55 @@
+# MANUAL TRIGGER ONLY — never add push/pr triggers to this file.
+# Deploys to Render are a human-gated action: run this workflow from the
+# GitHub Actions UI or via `gh workflow run deploy-orchestrator.yml`.
+
+name: Deploy — Orchestrator (Render)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+jobs:
+  deploy-orchestrator:
+    name: Verify tests then deploy to Render
+    runs-on: ubuntu-latest
+    environment: production          # maps to the GitHub Environment with protection rules
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: orchestrator/package-lock.json
+
+      - name: Install dependencies
+        working-directory: orchestrator
+        run: npm ci
+
+      - name: Run tests — must pass before deploy
+        working-directory: orchestrator
+        run: npm test
+        env:
+          NODE_ENV: test
+
+      # ── Render deploy hook ────────────────────────────────────────────────
+      # The hook URL is stored as a repository secret: RENDER_DEPLOY_HOOK_URL.
+      # Calling it triggers a new Render deploy for the orchestrator service.
+      - name: Trigger Render deploy
+        run: |
+          echo "Triggering Render deploy for orchestrator..."
+          response=$(curl --silent --show-error --fail \
+            --request POST \
+            "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+          echo "Render response: $response"
+          echo "Deploy triggered successfully."

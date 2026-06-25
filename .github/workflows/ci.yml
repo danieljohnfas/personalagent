@@ -1,0 +1,104 @@
+# CI — runs on every push and pull request to any branch.
+# ⚠ This workflow NEVER deploys anything.  Deploys are manual-only (workflow_dispatch).
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  # ── 1. Lint & TypeScript type-check ───────────────────────────────────────
+  lint-and-type-check:
+    name: Lint & type-check (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [interface, orchestrator, integration]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: TypeScript — noEmit
+        working-directory: ${{ matrix.app }}
+        run: npx tsc --noEmit
+
+  # ── 2. Unit / integration tests (vitest) ─────────────────────────────────
+  test:
+    name: Test (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # interface has no server-side test suite — vitest lives in orchestrator + integration
+        app: [orchestrator, integration]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: Run tests (vitest)
+        working-directory: ${{ matrix.app }}
+        run: npm test
+        env:
+          # Tests must never reach live services — mocks only.
+          NODE_ENV: test
+
+  # ── 3. Build check ────────────────────────────────────────────────────────
+  build-check:
+    name: Build check (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [interface, orchestrator, integration]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.app }}
+        run: npm run build
+        env:
+          # Provide dummy values so builds never reach real services.
+          NODE_ENV: production
+          DATABASE_URL: postgresql://dummy:dummy@dummy/dummy
+          JWT_SECRET: ci-dummy-secret-not-real

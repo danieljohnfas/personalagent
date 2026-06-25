@@ -1,0 +1,24 @@
+{
+  "name": "@partner/integration",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "dotenv": "^16.4.0",
+    "drizzle-orm": "^0.45.2",
+    "pgvector": "^0.3.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

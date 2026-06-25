@@ -1,0 +1,17 @@
+{
+  "name": "personalagent",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "interface",
+    "orchestrator",
+    "integration",
+    "deploy"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:orchestrator": "npm run dev --workspace=orchestrator",
+    "dev:interface": "npm run dev --workspace=interface"
+  }
+}

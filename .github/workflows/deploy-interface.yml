@@ -1,0 +1,57 @@
+# MANUAL TRIGGER ONLY — never add push/pr triggers to this file.
+# Deploys to Vercel are a human-gated action: run this workflow from the
+# GitHub Actions UI or via `gh workflow run deploy-interface.yml`.
+
+name: Deploy — Interface (Vercel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+jobs:
+  deploy-interface:
+    name: Verify build then deploy to Vercel
+    runs-on: ubuntu-latest
+    environment: production          # maps to the GitHub Environment with protection rules
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: interface/package-lock.json
+
+      - name: Install dependencies
+        working-directory: interface
+        run: npm ci
+
+      - name: Type-check — must pass before deploy
+        working-directory: interface
+        run: npx tsc --noEmit
+
+      # ── Vercel deploy ─────────────────────────────────────────────────────
+      # Requires three repository secrets:
+      #   VERCEL_TOKEN      — personal access token from vercel.com/account/tokens
+      #   VERCEL_ORG_ID     — from `vercel link` or project settings
+      #   VERCEL_PROJECT_ID — from `vercel link` or project settings
+      - name: Deploy to Vercel (production)
+        working-directory: interface
+        run: |
+          echo "Deploying interface to Vercel (production)..."
+          npx vercel --prod \
+            --token "${{ secrets.VERCEL_TOKEN }}" \
+            --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
