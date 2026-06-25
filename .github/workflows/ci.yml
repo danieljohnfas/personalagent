@@ -90,6 +90,9 @@ jobs:
         env:
           # Tests must never reach live services — mocks only.
           NODE_ENV: test
+          GEMINI_API_KEY: ''
+          DATABASE_URL: 'postgresql://dummy:dummy@dummy/dummy'
+          GITHUB_PAT_TOKEN: 'ci-dummy-token'
 
   # ── 3. Build check ────────────────────────────────────────────────────────
   build-check:
