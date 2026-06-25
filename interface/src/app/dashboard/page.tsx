@@ -22,16 +22,12 @@ interface Approval {
   created_at: string;
 }
 
-function relTime(s: string) {
-  const diff = Math.floor((Date.now() - new Date(s).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
+
 
 export default function DashboardPage() {
+  interface OAuthConnection { id: string; provider: string; accountEmail: string; createdAt: string; }
   const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [connections, setConnections] = useState<any[]>([]);
+  const [connections, setConnections] = useState<OAuthConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
   const [health, setHealth] = useState<{ orchestrator: boolean; integration: boolean }>({
@@ -208,7 +204,7 @@ export default function DashboardPage() {
               {!loading && connections.length === 0 && (
                 <div className="empty-state">No accounts connected yet.</div>
               )}
-              {connections.map((c: any) => (
+              {connections.map((c) => (
                 <div key={c.id} className="card-row">
                   <div className="card-icon icon-info">G</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
