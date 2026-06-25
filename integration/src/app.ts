@@ -3,6 +3,7 @@ import cors from 'cors';
 import 'express-async-errors';
 import { MCPManager } from './mcp/manager.js';
 import { authRouter } from './auth.js';
+import { chatRouter } from './chat.js';
 import { WEB_TOOLS, callWebTool } from './web/index.js';
 
 export const app = express();
@@ -60,6 +61,7 @@ router.get('/tools', async (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/chat', chatRouter);
 app.use('/api', router);
 
 // Error handler
